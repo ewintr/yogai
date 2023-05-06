@@ -1,2 +1,4 @@
 github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
 github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
+miniflux.app v0.0.0-20230505000442-88062ab9f959 h1:YzOQqdFtI6HYRmz8+xVZbqcrVoaC3X4x/pB2DDID//c=
+miniflux.app v0.0.0-20230505000442-88062ab9f959/go.mod h1:VWCACdWTG2GzFFifM2i9hVK91mZxmPvZCdHzYGheNOE=
