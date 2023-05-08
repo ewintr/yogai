@@ -2,15 +2,29 @@ package storage
 
 import (
 	"database/sql"
+	"ewintr.nl/yogai/model"
 	"fmt"
 	_ "github.com/lib/pq"
 )
+
+type PostgresInfo struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Database string
+}
 
 type Postgres struct {
 	db *sql.DB
 }
 
-func NewPostgres(db *sql.DB) (*Postgres, error) {
+func NewPostgres(pgInfo PostgresInfo) (*Postgres, error) {
+	db, err := sql.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		pgInfo.Host, pgInfo.Port, pgInfo.User, pgInfo.Password, pgInfo.Database))
+	if err != nil {
+		return &Postgres{}, err
+	}
 	p := &Postgres{db: db}
 	if err := p.migrate(pgMigration); err != nil {
 		return &Postgres{}, err
@@ -19,18 +33,38 @@ func NewPostgres(db *sql.DB) (*Postgres, error) {
 	return p, nil
 }
 
+type PostgresVideoRepository struct {
+	*Postgres
+}
+
+func NewPostgresVideoRepository(postgres *Postgres) *PostgresVideoRepository {
+	return &PostgresVideoRepository{postgres}
+}
+
+func (p *PostgresVideoRepository) Save(v *model.Video) error {
+	query := `INSERT INTO video (id, status, youtube_url, feed_id, title, description)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (id)
+DO UPDATE SET
+  id = EXCLUDED.id,
+  status = EXCLUDED.status,
+  youtube_url = EXCLUDED.youtube_url,
+  feed_id = EXCLUDED.feed_id,
+  title = EXCLUDED.title,
+  description = EXCLUDED.description;`
+	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeURL, v.FeedID, v.Title, v.Description)
+
+	return err
+}
+
 var pgMigration = []string{
-	`CREATE TABLE channel (
-    id SERIAL PRIMARY KEY,
-    url VARCHAR(255) NOT NULL,
-    feed_url VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL
-)`,
+	`CREATE TYPE video_status AS ENUM ('new', 'needs_summary', 'ready')`,
 	`CREATE TABLE video (
-    id SERIAL PRIMARY KEY,
-    channel_id INTEGER REFERENCES channel(id) ON DELETE CASCADE,
-    url VARCHAR(255) NOT NULL,
+    id uuid PRIMARY KEY,
+    status video_status NOT NULL,
+    youtube_url VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
+    feed_id VARCHAR(255) NOT NULL,
     description TEXT,
     summary TEXT
 )`,
