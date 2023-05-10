@@ -42,27 +42,27 @@ func NewPostgresVideoRepository(postgres *Postgres) *PostgresVideoRepository {
 }
 
 func (p *PostgresVideoRepository) Save(v *model.Video) error {
-	query := `INSERT INTO video (id, status, youtube_url, feed_id, title, description)
+	query := `INSERT INTO video (id, status, youtube_id, feed_id, title, description)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (id)
 DO UPDATE SET
   id = EXCLUDED.id,
   status = EXCLUDED.status,
-  youtube_url = EXCLUDED.youtube_url,
+  youtube_id = EXCLUDED.youtube_id,
   feed_id = EXCLUDED.feed_id,
   title = EXCLUDED.title,
   description = EXCLUDED.description;`
-	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeURL, v.FeedID, v.Title, v.Description)
+	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.FeedID, v.Title, v.Description)
 
 	return err
 }
 
 var pgMigration = []string{
-	`CREATE TYPE video_status AS ENUM ('new', 'needs_summary', 'ready')`,
+	`CREATE TYPE video_status AS ENUM ('new', 'ready')`,
 	`CREATE TABLE video (
     id uuid PRIMARY KEY,
     status video_status NOT NULL,
-    youtube_url VARCHAR(255) NOT NULL,
+    youtube_id VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
     feed_id VARCHAR(255) NOT NULL,
     description TEXT,

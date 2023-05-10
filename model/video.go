@@ -5,16 +5,15 @@ import "github.com/google/uuid"
 type Status string
 
 const (
-	STATUS_NEW           Status = "new"
-	STATUS_NEEDS_SUMMARY Status = "needs_summary"
-	STATUS_READY         Status = "ready"
+	STATUS_NEW   Status = "new"
+	STATUS_READY Status = "ready"
 )
 
 type Video struct {
 	ID          uuid.UUID
 	Status      Status
-	YoutubeURL  string
-	FeedID      string
+	YoutubeID   string
+	FeedID      uuid.UUID
 	Title       string
 	Description string
 	Summary     string

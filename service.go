@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ewintr.nl/yogai/fetch"
+	"ewintr.nl/yogai/fetcher"
 	"ewintr.nl/yogai/storage"
 	"fmt"
 	"os"
@@ -23,7 +23,7 @@ func main() {
 	}
 	videoRepo := storage.NewPostgresVideoRepository(postgres)
 
-	mflx := fetch.NewMiniflux(fetch.MinifluxInfo{
+	mflx := fetcher.NewMiniflux(fetcher.MinifluxInfo{
 		Endpoint: getParam("MINIFLUX_ENDPOINT", "http://localhost/v1"),
 		ApiKey:   getParam("MINIFLUX_APIKEY", ""),
 	})
@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fetcher := fetch.NewFetch(videoRepo, mflx, fetchInterval)
+	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval)
 	go fetcher.Run()
 
 	done := make(chan os.Signal)
