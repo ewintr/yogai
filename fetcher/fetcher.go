@@ -3,9 +3,8 @@ package fetcher
 import (
 	"ewintr.nl/yogai/model"
 	"ewintr.nl/yogai/storage"
-	"fmt"
 	"github.com/google/uuid"
-	"log"
+	"golang.org/x/exp/slog"
 	"time"
 )
 
@@ -15,15 +14,17 @@ type Fetcher struct {
 	feedReader    FeedReader
 	pipeline      chan *model.Video
 	needsMetadata chan *model.Video
+	logger        *slog.Logger
 }
 
-func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval time.Duration) *Fetcher {
+func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval time.Duration, logger *slog.Logger) *Fetcher {
 	return &Fetcher{
 		interval:      interval,
 		videoRepo:     videoRepo,
 		feedReader:    feedReader,
 		pipeline:      make(chan *model.Video),
 		needsMetadata: make(chan *model.Video),
+		logger:        logger,
 	}
 }
 
@@ -31,6 +32,7 @@ func (f *Fetcher) Run() {
 	go f.ReadFeeds()
 	go f.MetadataFetcher()
 
+	f.logger.Info("started pipeline")
 	for {
 		select {
 		case video := <-f.pipeline:
@@ -43,12 +45,19 @@ func (f *Fetcher) Run() {
 }
 
 func (f *Fetcher) ReadFeeds() {
+	f.logger.Info("started feed reader")
 	ticker := time.NewTicker(f.interval)
 	for range ticker.C {
 		entries, err := f.feedReader.Unread()
 		if err != nil {
-			log.Println(err)
+			f.logger.Error("failed to fetch unread entries", err)
+			continue
 		}
+		f.logger.Info("fetched unread entries", slog.Int("count", len(entries)))
+		if len(entries) == 0 {
+			continue
+		}
+
 		for _, entry := range entries {
 			video := &model.Video{
 				ID:        uuid.New(),
@@ -57,26 +66,29 @@ func (f *Fetcher) ReadFeeds() {
 				// feed id
 			}
 			if err := f.videoRepo.Save(video); err != nil {
-				log.Println(err)
+				f.logger.Error("failed to save video", err)
 				continue
 			}
 			f.pipeline <- video
 			if err := f.feedReader.MarkRead(entry.EntryID); err != nil {
-				log.Println(err)
+				f.logger.Error("failed to mark entry as read", err)
+				continue
 			}
 		}
 	}
 }
 
 func (f *Fetcher) MetadataFetcher() {
+	f.logger.Info("started metadata fetcher")
+
 	buffer := []*model.Video{}
 	timeout := time.NewTimer(10 * time.Second)
 	fetch := make(chan []*model.Video)
 
 	go func() {
 		for videos := range fetch {
-			fmt.Println("MD Fetching metadata")
-			fmt.Printf("%d videos to fetch\n", len(videos))
+			f.logger.Info("fetching metadata", slog.Int("count", len(videos)))
+
 		}
 	}()
 

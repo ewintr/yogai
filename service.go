@@ -3,13 +3,14 @@ package main
 import (
 	"ewintr.nl/yogai/fetcher"
 	"ewintr.nl/yogai/storage"
-	"fmt"
+	"golang.org/x/exp/slog"
 	"os"
 	"os/signal"
 	"time"
 )
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stderr))
 	postgres, err := storage.NewPostgres(storage.PostgresInfo{
 		Host:     getParam("POSTGRES_HOST", "localhost"),
 		Port:     getParam("POSTGRES_PORT", "5432"),
@@ -18,7 +19,7 @@ func main() {
 		Database: getParam("POSTGRES_DB", "yogai"),
 	})
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("unable to connect to postgres", err)
 		os.Exit(1)
 	}
 	videoRepo := storage.NewPostgresVideoRepository(postgres)
@@ -30,18 +31,19 @@ func main() {
 
 	fetchInterval, err := time.ParseDuration(getParam("FETCH_INTERVAL", "1m"))
 	if err != nil {
-		fmt.Println(err)
+		logger.Error("unable to parse fetch interval", err)
 		os.Exit(1)
 	}
 
-	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval)
+	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, logger)
 	go fetcher.Run()
+	logger.Info("service started")
 
 	done := make(chan os.Signal)
 	signal.Notify(done, os.Interrupt)
 	<-done
 
-	//fmt.Println(err)
+	logger.Info("service stopped")
 }
 
 func getParam(param, def string) string {
