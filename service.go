@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"ewintr.nl/yogai/fetcher"
 	"ewintr.nl/yogai/storage"
 	"golang.org/x/exp/slog"
+	"google.golang.org/api/option"
+	"google.golang.org/api/youtube/v3"
 	"os"
 	"os/signal"
 	"time"
 )
 
 func main() {
+	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stderr))
 	postgres, err := storage.NewPostgres(storage.PostgresInfo{
 		Host:     getParam("POSTGRES_HOST", "localhost"),
@@ -35,7 +39,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, logger)
+	ytClient, err := youtube.NewService(ctx, option.WithAPIKey(getParam("YOUTUBE_API_KEY", "")))
+	if err != nil {
+		logger.Error("unable to create youtube service", err)
+		os.Exit(1)
+	}
+	yt := fetcher.NewYoutube(ytClient)
+
+	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, yt, logger)
 	go fetcher.Run()
 	logger.Info("service started")
 

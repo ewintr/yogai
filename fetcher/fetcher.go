@@ -9,22 +9,24 @@ import (
 )
 
 type Fetcher struct {
-	interval      time.Duration
-	videoRepo     storage.VideoRepository
-	feedReader    FeedReader
-	pipeline      chan *model.Video
-	needsMetadata chan *model.Video
-	logger        *slog.Logger
+	interval        time.Duration
+	videoRepo       storage.VideoRepository
+	feedReader      FeedReader
+	metadataFetcher MetadataFetcher
+	pipeline        chan *model.Video
+	needsMetadata   chan *model.Video
+	logger          *slog.Logger
 }
 
-func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval time.Duration, logger *slog.Logger) *Fetcher {
+func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval time.Duration, metadataFetcher MetadataFetcher, logger *slog.Logger) *Fetcher {
 	return &Fetcher{
-		interval:      interval,
-		videoRepo:     videoRepo,
-		feedReader:    feedReader,
-		pipeline:      make(chan *model.Video),
-		needsMetadata: make(chan *model.Video),
-		logger:        logger,
+		interval:        interval,
+		videoRepo:       videoRepo,
+		feedReader:      feedReader,
+		metadataFetcher: metadataFetcher,
+		pipeline:        make(chan *model.Video),
+		needsMetadata:   make(chan *model.Video),
+		logger:          logger,
 	}
 }
 
@@ -88,7 +90,24 @@ func (f *Fetcher) MetadataFetcher() {
 	go func() {
 		for videos := range fetch {
 			f.logger.Info("fetching metadata", slog.Int("count", len(videos)))
+			ids := make([]string, 0, len(videos))
+			for _, video := range videos {
+				ids = append(ids, video.YoutubeID)
+			}
+			mds, err := f.metadataFetcher.FetchMetadata(ids)
+			if err != nil {
+				f.logger.Error("failed to fetch metadata", err)
+				continue
+			}
+			for _, video := range videos {
+				video.Title = mds[video.YoutubeID].Title
+				video.Description = mds[video.YoutubeID].Description
 
+				if err := f.videoRepo.Save(video); err != nil {
+					f.logger.Error("failed to save video", err)
+					continue
+				}
+			}
 		}
 	}()
 
