@@ -62,7 +62,7 @@ var pgMigration = []string{
 	`CREATE TABLE video (
     id uuid PRIMARY KEY,
     status video_status NOT NULL,
-    youtube_id VARCHAR(255) NOT NULL,
+    youtube_id VARCHAR(255) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL,
     feed_id VARCHAR(255) NOT NULL,
     description TEXT,
