@@ -3,18 +3,23 @@ package main
 import (
 	"context"
 	"ewintr.nl/yogai/fetcher"
+	"ewintr.nl/yogai/handler"
 	"ewintr.nl/yogai/storage"
+	"fmt"
 	"golang.org/x/exp/slog"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 )
 
 func main() {
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stderr))
+
 	postgres, err := storage.NewPostgres(storage.PostgresInfo{
 		Host:     getParam("POSTGRES_HOST", "localhost"),
 		Port:     getParam("POSTGRES_PORT", "5432"),
@@ -50,7 +55,15 @@ func main() {
 
 	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, yt, openAIClient, logger)
 	go fetcher.Run()
-	logger.Info("service started")
+	logger.Info("fetch service started")
+
+	port, err := strconv.Atoi(getParam("API_PORT", "8080"))
+	if err != nil {
+		logger.Error("invalid port", err)
+		os.Exit(1)
+	}
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), handler.NewServer(logger))
+	logger.Info("http server started")
 
 	done := make(chan os.Signal)
 	signal.Notify(done, os.Interrupt)
