@@ -13,19 +13,23 @@ type Fetcher struct {
 	videoRepo       storage.VideoRepository
 	feedReader      FeedReader
 	metadataFetcher MetadataFetcher
+	summaryFetcher  SummaryFetcher
 	pipeline        chan *model.Video
 	needsMetadata   chan *model.Video
+	needsSummary    chan *model.Video
 	logger          *slog.Logger
 }
 
-func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval time.Duration, metadataFetcher MetadataFetcher, logger *slog.Logger) *Fetcher {
+func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval time.Duration, metadataFetcher MetadataFetcher, summaryFetcher SummaryFetcher, logger *slog.Logger) *Fetcher {
 	return &Fetcher{
 		interval:        interval,
 		videoRepo:       videoRepo,
 		feedReader:      feedReader,
 		metadataFetcher: metadataFetcher,
-		pipeline:        make(chan *model.Video),
-		needsMetadata:   make(chan *model.Video),
+		summaryFetcher:  summaryFetcher,
+		pipeline:        make(chan *model.Video, 10),
+		needsMetadata:   make(chan *model.Video, 10),
+		needsSummary:    make(chan *model.Video, 10),
 		logger:          logger,
 	}
 }
@@ -33,16 +37,42 @@ func NewFetch(videoRepo storage.VideoRepository, feedReader FeedReader, interval
 func (f *Fetcher) Run() {
 	go f.ReadFeeds()
 	go f.MetadataFetcher()
+	go f.SummaryFetcher()
+	go f.FindUnprocessed()
 
 	f.logger.Info("started pipeline")
 	for {
 		select {
 		case video := <-f.pipeline:
 			switch video.Status {
-			case model.STATUS_NEW:
+			case model.StatusNew:
 				f.needsMetadata <- video
+			case model.StatusHasMetadata:
+				f.needsSummary <- video
+			case model.StatusHasSummary:
+				video.Status = model.StatusReady
+				f.logger.Info("video is ready", slog.String("id", video.ID.String()))
+
+			}
+			if err := f.videoRepo.Save(video); err != nil {
+				f.logger.Error("failed to save video", err)
+				continue
 			}
 		}
+
+	}
+}
+
+func (f *Fetcher) FindUnprocessed() {
+	f.logger.Info("looking for unprocessed videos")
+	videos, err := f.videoRepo.FindByStatus(model.StatusNew, model.StatusHasMetadata)
+	if err != nil {
+		f.logger.Error("failed to fetch unprocessed videos", err)
+		return
+	}
+	f.logger.Info("found unprocessed videos", slog.Int("count", len(videos)))
+	for _, video := range videos {
+		f.pipeline <- video
 	}
 }
 
@@ -63,7 +93,7 @@ func (f *Fetcher) ReadFeeds() {
 		for _, entry := range entries {
 			video := &model.Video{
 				ID:        uuid.New(),
-				Status:    model.STATUS_NEW,
+				Status:    model.StatusNew,
 				YoutubeID: entry.YouTubeID,
 				// feed id
 			}
@@ -102,12 +132,14 @@ func (f *Fetcher) MetadataFetcher() {
 			for _, video := range videos {
 				video.Title = mds[video.YoutubeID].Title
 				video.Description = mds[video.YoutubeID].Description
+				video.Status = model.StatusHasMetadata
 
 				if err := f.videoRepo.Save(video); err != nil {
 					f.logger.Error("failed to save video", err)
 					continue
 				}
 			}
+			f.logger.Info("fetched metadata", slog.Int("count", len(videos)))
 		}
 	}()
 
@@ -130,6 +162,22 @@ func (f *Fetcher) MetadataFetcher() {
 			copy(batch, buffer)
 			fetch <- batch
 			buffer = []*model.Video{}
+		}
+	}
+}
+
+func (f *Fetcher) SummaryFetcher() {
+	for {
+		select {
+		case video := <-f.needsSummary:
+			f.logger.Info("fetching summary", slog.String("id", video.ID.String()))
+			if err := f.summaryFetcher.FetchSummary(video); err != nil {
+				f.logger.Error("failed to fetch summary", err)
+				continue
+			}
+			video.Status = model.StatusHasSummary
+			f.logger.Info("fetched summary", slog.String("id", video.ID.String()))
+			f.pipeline <- video
 		}
 	}
 }

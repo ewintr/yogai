@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"ewintr.nl/yogai/model"
 	"fmt"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -42,8 +43,8 @@ func NewPostgresVideoRepository(postgres *Postgres) *PostgresVideoRepository {
 }
 
 func (p *PostgresVideoRepository) Save(v *model.Video) error {
-	query := `INSERT INTO video (id, status, youtube_id, feed_id, title, description)
-VALUES ($1, $2, $3, $4, $5, $6)
+	query := `INSERT INTO video (id, status, youtube_id, feed_id, title, description, summary)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (id)
 DO UPDATE SET
   id = EXCLUDED.id,
@@ -51,23 +52,59 @@ DO UPDATE SET
   youtube_id = EXCLUDED.youtube_id,
   feed_id = EXCLUDED.feed_id,
   title = EXCLUDED.title,
-  description = EXCLUDED.description;`
-	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.FeedID, v.Title, v.Description)
+  description = EXCLUDED.description,
+  summary = EXCLUDED.summary;`
+	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.FeedID, v.Title, v.Description, v.Summary)
 
 	return err
+}
+
+func (p *PostgresVideoRepository) FindByStatus(statuses ...model.Status) ([]*model.Video, error) {
+	query := `SELECT id, status, youtube_id, feed_id, title, description, summary
+FROM video
+WHERE status = ANY($1)`
+	rows, err := p.db.Query(query, pq.Array(statuses))
+	if err != nil {
+		return nil, err
+	}
+
+	videos := []*model.Video{}
+	for rows.Next() {
+		v := &model.Video{}
+		if err := rows.Scan(&v.ID, &v.Status, &v.YoutubeID, &v.FeedID, &v.Title, &v.Description, &v.Summary); err != nil {
+			return nil, err
+		}
+		videos = append(videos, v)
+	}
+	rows.Close()
+
+	return videos, nil
 }
 
 var pgMigration = []string{
 	`CREATE TYPE video_status AS ENUM ('new', 'ready')`,
 	`CREATE TABLE video (
-    id uuid PRIMARY KEY,
-    status video_status NOT NULL,
-    youtube_id VARCHAR(255) NOT NULL UNIQUE,
-    title VARCHAR(255) NOT NULL,
-    feed_id VARCHAR(255) NOT NULL,
-    description TEXT,
-    summary TEXT
+id uuid PRIMARY KEY,
+status video_status NOT NULL,
+youtube_id VARCHAR(255) NOT NULL UNIQUE,
+title VARCHAR(255) NOT NULL,
+feed_id VARCHAR(255) NOT NULL,
+description TEXT,
+summary TEXT
 )`,
+	`CREATE TYPE video_status_new AS ENUM ('new', 'has_metadata', 'has_summary', 'ready')`,
+	`ALTER TABLE video
+ALTER COLUMN status TYPE video_status_new
+USING video::text::video_status_new`,
+	`DROP TYPE video_status`,
+	`ALTER TYPE video_status_new RENAME TO video_status`,
+	`UPDATE video SET summary = '' WHERE summary IS NULL `,
+	`UPDATE video SET description = '' WHERE description IS NULL `,
+	`ALTER TABLE video 
+ALTER COLUMN summary SET DEFAULT '', 
+ALTER COLUMN summary SET NOT NULL,
+ALTER COLUMN description SET DEFAULT '', 
+ALTER COLUMN description SET NOT NULL`,
 }
 
 func (p *Postgres) migrate(wanted []string) error {

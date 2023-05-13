@@ -5,8 +5,10 @@ import "github.com/google/uuid"
 type Status string
 
 const (
-	STATUS_NEW   Status = "new"
-	STATUS_READY Status = "ready"
+	StatusNew         Status = "new"
+	StatusHasMetadata Status = "has_metadata"
+	StatusHasSummary  Status = "has_summary"
+	StatusReady       Status = "ready"
 )
 
 type Video struct {

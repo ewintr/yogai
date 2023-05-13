@@ -46,7 +46,9 @@ func main() {
 	}
 	yt := fetcher.NewYoutube(ytClient)
 
-	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, yt, logger)
+	openAIClient := fetcher.NewOpenAI(getParam("OPENAI_API_KEY", ""))
+
+	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, yt, openAIClient, logger)
 	go fetcher.Run()
 	logger.Info("service started")
 
