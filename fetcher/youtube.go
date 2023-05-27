@@ -1,8 +1,10 @@
 package fetcher
 
 import (
-	"google.golang.org/api/youtube/v3"
 	"strings"
+
+	"ewintr.nl/yogai/model"
+	"google.golang.org/api/youtube/v3"
 )
 
 type Youtube struct {
@@ -13,19 +15,48 @@ func NewYoutube(client *youtube.Service) *Youtube {
 	return &Youtube{Client: client}
 }
 
-func (y *Youtube) FetchMetadata(ytIDs []string) (map[string]Metadata, error) {
-	call := y.Client.Videos.
-		List([]string{"snippet"}).
-		Id(strings.Join(ytIDs, ","))
+func (y *Youtube) Search(channelID model.YoutubeChannelID, pageToken string) ([]model.YoutubeVideoID, string, error) {
+	call := y.Client.Search.
+		List([]string{"id"}).
+		MaxResults(50).
+		Type("video").
+		Order("date").
+		ChannelId(string(channelID))
+
+	if pageToken != "" {
+		call.PageToken(pageToken)
+	}
 
 	response, err := call.Do()
 	if err != nil {
-		return map[string]Metadata{}, err
+		return []model.YoutubeVideoID{}, "", err
 	}
 
-	mds := make(map[string]Metadata, len(response.Items))
+	ids := make([]model.YoutubeVideoID, len(response.Items))
+	for i, item := range response.Items {
+		ids[i] = model.YoutubeVideoID(item.Id.VideoId)
+	}
+
+	return ids, response.NextPageToken, nil
+}
+
+func (y *Youtube) FetchMetadata(ytIDs []model.YoutubeVideoID) (map[model.YoutubeVideoID]Metadata, error) {
+	strIDs := make([]string, len(ytIDs))
+	for i, id := range ytIDs {
+		strIDs[i] = string(id)
+	}
+	call := y.Client.Videos.
+		List([]string{"snippet"}).
+		Id(strings.Join(strIDs, ","))
+
+	response, err := call.Do()
+	if err != nil {
+		return map[model.YoutubeVideoID]Metadata{}, err
+	}
+
+	mds := make(map[model.YoutubeVideoID]Metadata, len(response.Items))
 	for _, item := range response.Items {
-		mds[item.Id] = Metadata{
+		mds[model.YoutubeVideoID(item.Id)] = Metadata{
 			Title:       item.Snippet.Title,
 			Description: item.Snippet.Description,
 		}

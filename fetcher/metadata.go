@@ -1,10 +1,12 @@
 package fetcher
 
+import "ewintr.nl/yogai/model"
+
 type Metadata struct {
 	Title       string
 	Description string
 }
 
 type MetadataFetcher interface {
-	FetchMetadata([]string) (map[string]Metadata, error)
+	FetchMetadata([]model.YoutubeVideoID) (map[model.YoutubeVideoID]Metadata, error)
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"ewintr.nl/yogai/storage"
 	"fmt"
 	"golang.org/x/exp/slog"
 	"miniflux.app/logger"
@@ -15,9 +16,11 @@ type Server struct {
 	logger *slog.Logger
 }
 
-func NewServer(logger *slog.Logger) *Server {
+func NewServer(videoRepo storage.VideoRepository, logger *slog.Logger) *Server {
 	return &Server{
-		apis:   map[string]http.Handler{},
+		apis: map[string]http.Handler{
+			"video": NewVideoAPI(videoRepo, logger),
+		},
 		logger: logger,
 	}
 }

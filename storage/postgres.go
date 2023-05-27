@@ -2,8 +2,9 @@ package storage
 
 import (
 	"database/sql"
-	"ewintr.nl/yogai/model"
 	"fmt"
+
+	"ewintr.nl/yogai/model"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
@@ -43,24 +44,24 @@ func NewPostgresVideoRepository(postgres *Postgres) *PostgresVideoRepository {
 }
 
 func (p *PostgresVideoRepository) Save(v *model.Video) error {
-	query := `INSERT INTO video (id, status, youtube_id, feed_id, title, description, summary)
+	query := `INSERT INTO video (id, status, youtube_id, youtube_channel_id, title, description, summary)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (id)
 DO UPDATE SET
   id = EXCLUDED.id,
   status = EXCLUDED.status,
   youtube_id = EXCLUDED.youtube_id,
-  feed_id = EXCLUDED.feed_id,
+  youtube_channel_id = EXCLUDED.youtube_channel_id,
   title = EXCLUDED.title,
   description = EXCLUDED.description,
   summary = EXCLUDED.summary;`
-	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.FeedID, v.Title, v.Description, v.Summary)
+	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.YoutubeChannelID, v.Title, v.Description, v.Summary)
 
 	return err
 }
 
-func (p *PostgresVideoRepository) FindByStatus(statuses ...model.Status) ([]*model.Video, error) {
-	query := `SELECT id, status, youtube_id, feed_id, title, description, summary
+func (p *PostgresVideoRepository) FindByStatus(statuses ...model.VideoStatus) ([]*model.Video, error) {
+	query := `SELECT id, status, youtube_channel_id, youtube_id, title, description, summary
 FROM video
 WHERE status = ANY($1)`
 	rows, err := p.db.Query(query, pq.Array(statuses))
@@ -71,7 +72,7 @@ WHERE status = ANY($1)`
 	videos := []*model.Video{}
 	for rows.Next() {
 		v := &model.Video{}
-		if err := rows.Scan(&v.ID, &v.Status, &v.YoutubeID, &v.FeedID, &v.Title, &v.Description, &v.Summary); err != nil {
+		if err := rows.Scan(&v.ID, &v.Status, &v.YoutubeChannelID, &v.YoutubeID, &v.Title, &v.Description, &v.Summary); err != nil {
 			return nil, err
 		}
 		videos = append(videos, v)
@@ -79,6 +80,50 @@ WHERE status = ANY($1)`
 	rows.Close()
 
 	return videos, nil
+}
+
+type PostgresFeedRepository struct {
+	*Postgres
+}
+
+func NewPostgresFeedRepository(postgres *Postgres) *PostgresFeedRepository {
+	return &PostgresFeedRepository{postgres}
+}
+
+func (p *PostgresFeedRepository) Save(f *model.Feed) error {
+	query := `INSERT INTO feed (id, status, youtube_channel_id, title)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (id)
+DO UPDATE SET
+  id = EXCLUDED.id,
+  status = EXCLUDED.status,
+  youtube_channel_id = EXCLUDED.youtube_channel_id,
+  title = EXCLUDED.title;`
+	_, err := p.db.Exec(query, f.ID, f.Status, f.YoutubeChannelID, f.Title)
+
+	return err
+}
+
+func (p *PostgresFeedRepository) FindByStatus(statuses ...model.FeedStatus) ([]*model.Feed, error) {
+	query := `SELECT id, status, youtube_channel_id, title
+FROM feed
+WHERE status = ANY($1)`
+	rows, err := p.db.Query(query, pq.Array(statuses))
+	if err != nil {
+		return nil, err
+	}
+
+	feeds := []*model.Feed{}
+	for rows.Next() {
+		f := &model.Feed{}
+		if err := rows.Scan(&f.ID, &f.Status, &f.YoutubeChannelID, &f.Title); err != nil {
+			return nil, err
+		}
+		feeds = append(feeds, f)
+	}
+	rows.Close()
+
+	return feeds, nil
 }
 
 var pgMigration = []string{
@@ -105,6 +150,16 @@ ALTER COLUMN summary SET DEFAULT '',
 ALTER COLUMN summary SET NOT NULL,
 ALTER COLUMN description SET DEFAULT '', 
 ALTER COLUMN description SET NOT NULL`,
+	`CREATE TYPE feed_status AS ENUM ('new', 'ready')`,
+	`CREATE TABLE feed (
+id uuid PRIMARY KEY,
+status feed_status NOT NULL,
+youtube_channel_id VARCHAR(255) NOT NULL UNIQUE,
+title VARCHAR(255) NOT NULL
+)`,
+	`ALTER TABLE video
+DROP COLUMN feed_id,
+ADD COLUMN youtube_channel_id VARCHAR(255) NOT NULL REFERENCES feed(youtube_channel_id)`,
 }
 
 func (p *Postgres) migrate(wanted []string) error {

@@ -2,21 +2,25 @@ package model
 
 import "github.com/google/uuid"
 
-type Status string
+type VideoStatus string
 
 const (
-	StatusNew         Status = "new"
-	StatusHasMetadata Status = "has_metadata"
-	StatusHasSummary  Status = "has_summary"
-	StatusReady       Status = "ready"
+	StatusNew         VideoStatus = "new"
+	StatusHasMetadata VideoStatus = "has_metadata"
+	StatusHasSummary  VideoStatus = "has_summary"
+	StatusReady       VideoStatus = "ready"
 )
 
+type YoutubeVideoID string
+
+type YoutubeChannelID string
+
 type Video struct {
-	ID          uuid.UUID
-	Status      Status
-	YoutubeID   string
-	FeedID      uuid.UUID
-	Title       string
-	Description string
-	Summary     string
+	ID               uuid.UUID
+	Status           VideoStatus
+	YoutubeID        YoutubeVideoID
+	YoutubeChannelID YoutubeChannelID
+	Title            string
+	Description      string
+	Summary          string
 }

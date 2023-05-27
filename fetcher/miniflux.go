@@ -1,8 +1,9 @@
 package fetcher
 
 import (
-	"miniflux.app/client"
 	"strings"
+
+	"miniflux.app/client"
 )
 
 type Entry struct {
@@ -31,24 +32,17 @@ func NewMiniflux(mflInfo MinifluxInfo) *Miniflux {
 func (m *Miniflux) Unread() ([]FeedEntry, error) {
 	result, err := m.client.Entries(&client.Filter{Status: "unread"})
 	if err != nil {
-		return []FeedEntry{}, err
+		return nil, err
 	}
 
-	entries := []FeedEntry{}
+	entries := make([]FeedEntry, 0, len(result.Entries))
 	for _, entry := range result.Entries {
 		entries = append(entries, FeedEntry{
-			EntryID:   entry.ID,
-			FeedID:    entry.FeedID,
-			YouTubeID: strings.TrimPrefix(entry.URL, "https://www.youtube.com/watch?v="),
+			EntryID:          entry.ID,
+			FeedID:           entry.FeedID,
+			YoutubeChannelID: strings.TrimPrefix(entry.Feed.FeedURL, "https://www.youtube.com/feeds/videos.xml?channel_id="),
+			YoutubeID:        strings.TrimPrefix(entry.URL, "https://www.youtube.com/watch?v="),
 		})
-
-		//	ID:          uuid.New(),
-		//	Status:      model.STATUS_NEW,
-		//	YoutubeURL:  entry.URL,
-		//	FeedID:      strconv.Itoa(int(entry.ID)),
-		//	Title:       entry.Title,
-		//	Description: entry.Content,
-		//})
 	}
 
 	return entries, nil

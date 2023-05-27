@@ -2,18 +2,19 @@ package main
 
 import (
 	"context"
-	"ewintr.nl/yogai/fetcher"
-	"ewintr.nl/yogai/handler"
-	"ewintr.nl/yogai/storage"
 	"fmt"
-	"golang.org/x/exp/slog"
-	"google.golang.org/api/option"
-	"google.golang.org/api/youtube/v3"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
+
+	"ewintr.nl/yogai/fetcher"
+	"ewintr.nl/yogai/handler"
+	"ewintr.nl/yogai/storage"
+	"golang.org/x/exp/slog"
+	"google.golang.org/api/option"
+	"google.golang.org/api/youtube/v3"
 )
 
 func main() {
@@ -33,6 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 	videoRepo := storage.NewPostgresVideoRepository(postgres)
+	feedRepo := storage.NewPostgresFeedRepository(postgres)
 
 	mflx := fetcher.NewMiniflux(fetcher.MinifluxInfo{
 		Endpoint: getParam("MINIFLUX_ENDPOINT", "http://localhost/v1"),
@@ -54,8 +56,7 @@ func main() {
 
 	openAIClient := fetcher.NewOpenAI(getParam("OPENAI_API_KEY", ""))
 
-	fetcher := fetcher.NewFetch(videoRepo, mflx, fetchInterval, yt, openAIClient, logger)
-	go fetcher.Run()
+	go fetcher.NewFetch(feedRepo, videoRepo, yt, mflx, fetchInterval, yt, openAIClient, logger).Run()
 	logger.Info("fetch service started")
 
 	port, err := strconv.Atoi(getParam("API_PORT", "8080"))
@@ -63,7 +64,7 @@ func main() {
 		logger.Error("invalid port", err)
 		os.Exit(1)
 	}
-	go http.ListenAndServe(fmt.Sprintf(":%d", port), handler.NewServer(logger))
+	go http.ListenAndServe(fmt.Sprintf(":%d", port), handler.NewServer(videoRepo, logger))
 	logger.Info("http server started")
 
 	done := make(chan os.Signal)
