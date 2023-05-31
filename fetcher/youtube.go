@@ -46,7 +46,7 @@ func (y *Youtube) FetchMetadata(ytIDs []model.YoutubeVideoID) (map[model.Youtube
 		strIDs[i] = string(id)
 	}
 	call := y.Client.Videos.
-		List([]string{"snippet"}).
+		List([]string{"snippet,contentDetails"}).
 		Id(strings.Join(strIDs, ","))
 
 	response, err := call.Do()
@@ -56,10 +56,20 @@ func (y *Youtube) FetchMetadata(ytIDs []model.YoutubeVideoID) (map[model.Youtube
 
 	mds := make(map[model.YoutubeVideoID]Metadata, len(response.Items))
 	for _, item := range response.Items {
-		mds[model.YoutubeVideoID(item.Id)] = Metadata{
+		if item.Snippet == nil {
+			continue
+		}
+		md := Metadata{
 			Title:       item.Snippet.Title,
 			Description: item.Snippet.Description,
+			PublishedAt: item.Snippet.PublishedAt,
 		}
+
+		if item.ContentDetails != nil {
+			md.Duration = item.ContentDetails.Duration
+		}
+
+		mds[model.YoutubeVideoID(item.Id)] = md
 	}
 
 	return mds, nil

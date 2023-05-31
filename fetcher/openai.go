@@ -2,8 +2,9 @@ package fetcher
 
 import (
 	"context"
-	"ewintr.nl/yogai/model"
 	"fmt"
+
+	"ewintr.nl/yogai/model"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -34,7 +35,7 @@ func (o *OpenAI) FetchSummary(video *model.Video) error {
 
 				{
 					Role:    openai.ChatMessageRoleUser,
-					Content: fmt.Sprintf("%s\n\n%s", video.Title, video.Description),
+					Content: fmt.Sprintf("%s\n\n%s", video.YoutubeTitle, video.YoutubeDescription),
 				},
 			},
 		})

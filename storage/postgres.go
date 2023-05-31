@@ -44,24 +44,26 @@ func NewPostgresVideoRepository(postgres *Postgres) *PostgresVideoRepository {
 }
 
 func (p *PostgresVideoRepository) Save(v *model.Video) error {
-	query := `INSERT INTO video (id, status, youtube_id, youtube_channel_id, title, description, summary)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+	query := `INSERT INTO video (id, status, youtube_id, youtube_channel_id, youtube_title, youtube_description, youtube_duration, youtube_published_at, summary)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (id)
 DO UPDATE SET
   id = EXCLUDED.id,
   status = EXCLUDED.status,
   youtube_id = EXCLUDED.youtube_id,
   youtube_channel_id = EXCLUDED.youtube_channel_id,
-  title = EXCLUDED.title,
-  description = EXCLUDED.description,
+  youtube_title = EXCLUDED.youtube_title,
+  youtube_description = EXCLUDED.youtube_description,
+  youtube_duration = EXCLUDED.youtube_duration,
+  youtube_published_at = EXCLUDED.youtube_published_at,
   summary = EXCLUDED.summary;`
-	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.YoutubeChannelID, v.Title, v.Description, v.Summary)
+	_, err := p.db.Exec(query, v.ID, v.Status, v.YoutubeID, v.YoutubeChannelID, v.YoutubeTitle, v.YoutubeDescription, v.YoutubeDuration, v.YoutubePublishedAt, v.Summary)
 
 	return err
 }
 
 func (p *PostgresVideoRepository) FindByStatus(statuses ...model.VideoStatus) ([]*model.Video, error) {
-	query := `SELECT id, status, youtube_channel_id, youtube_id, title, description, summary
+	query := `SELECT id, status, youtube_channel_id, youtube_id, youtube_title, youtube_description,youtube_duration, youtube_published_at, summary
 FROM video
 WHERE status = ANY($1)`
 	rows, err := p.db.Query(query, pq.Array(statuses))
@@ -72,7 +74,7 @@ WHERE status = ANY($1)`
 	videos := []*model.Video{}
 	for rows.Next() {
 		v := &model.Video{}
-		if err := rows.Scan(&v.ID, &v.Status, &v.YoutubeChannelID, &v.YoutubeID, &v.Title, &v.Description, &v.Summary); err != nil {
+		if err := rows.Scan(&v.ID, &v.Status, &v.YoutubeChannelID, &v.YoutubeID, &v.YoutubeTitle, &v.YoutubeDescription, &v.YoutubeDuration, &v.YoutubePublishedAt, &v.Summary); err != nil {
 			return nil, err
 		}
 		videos = append(videos, v)
@@ -124,42 +126,6 @@ WHERE status = ANY($1)`
 	rows.Close()
 
 	return feeds, nil
-}
-
-var pgMigration = []string{
-	`CREATE TYPE video_status AS ENUM ('new', 'ready')`,
-	`CREATE TABLE video (
-id uuid PRIMARY KEY,
-status video_status NOT NULL,
-youtube_id VARCHAR(255) NOT NULL UNIQUE,
-title VARCHAR(255) NOT NULL,
-feed_id VARCHAR(255) NOT NULL,
-description TEXT,
-summary TEXT
-)`,
-	`CREATE TYPE video_status_new AS ENUM ('new', 'has_metadata', 'has_summary', 'ready')`,
-	`ALTER TABLE video
-ALTER COLUMN status TYPE video_status_new
-USING video::text::video_status_new`,
-	`DROP TYPE video_status`,
-	`ALTER TYPE video_status_new RENAME TO video_status`,
-	`UPDATE video SET summary = '' WHERE summary IS NULL `,
-	`UPDATE video SET description = '' WHERE description IS NULL `,
-	`ALTER TABLE video 
-ALTER COLUMN summary SET DEFAULT '', 
-ALTER COLUMN summary SET NOT NULL,
-ALTER COLUMN description SET DEFAULT '', 
-ALTER COLUMN description SET NOT NULL`,
-	`CREATE TYPE feed_status AS ENUM ('new', 'ready')`,
-	`CREATE TABLE feed (
-id uuid PRIMARY KEY,
-status feed_status NOT NULL,
-youtube_channel_id VARCHAR(255) NOT NULL UNIQUE,
-title VARCHAR(255) NOT NULL
-)`,
-	`ALTER TABLE video
-DROP COLUMN feed_id,
-ADD COLUMN youtube_channel_id VARCHAR(255) NOT NULL REFERENCES feed(youtube_channel_id)`,
 }
 
 func (p *Postgres) migrate(wanted []string) error {

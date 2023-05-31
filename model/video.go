@@ -16,11 +16,14 @@ type YoutubeVideoID string
 type YoutubeChannelID string
 
 type Video struct {
-	ID               uuid.UUID
-	Status           VideoStatus
-	YoutubeID        YoutubeVideoID
-	YoutubeChannelID YoutubeChannelID
-	Title            string
-	Description      string
-	Summary          string
+	ID                 uuid.UUID
+	Status             VideoStatus
+	YoutubeID          YoutubeVideoID
+	YoutubeChannelID   YoutubeChannelID
+	YoutubeTitle       string
+	YoutubeDescription string
+	YoutubeDuration    string
+	YoutubePublishedAt string
+
+	Summary string
 }

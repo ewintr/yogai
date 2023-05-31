@@ -197,8 +197,11 @@ func (f *Fetcher) MetadataFetcher() {
 				continue
 			}
 			for _, video := range videos {
-				video.Title = mds[video.YoutubeID].Title
-				video.Description = mds[video.YoutubeID].Description
+				md := mds[video.YoutubeID]
+				video.YoutubeTitle = md.Title
+				video.YoutubeDescription = md.Description
+				video.YoutubeDuration = md.Duration
+				video.YoutubePublishedAt = md.PublishedAt
 				video.Status = model.StatusHasMetadata
 
 				if err := f.videoRepo.Save(video); err != nil {

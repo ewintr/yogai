@@ -5,6 +5,8 @@ import "ewintr.nl/yogai/model"
 type Metadata struct {
 	Title       string
 	Description string
+	Duration    string
+	PublishedAt string
 }
 
 type MetadataFetcher interface {

@@ -50,7 +50,7 @@ func (v *VideoAPI) List(w http.ResponseWriter, r *http.Request) {
 	for _, v := range video {
 		resp = append(resp, respVideo{
 			YoutubeID: string(v.YoutubeID),
-			Title:     v.Title,
+			Title:     v.YoutubeTitle,
 			Summary:   v.Summary,
 		})
 	}
