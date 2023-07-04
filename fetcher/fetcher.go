@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"time"
 
 	"ewintr.nl/yogai/model"
@@ -13,6 +14,7 @@ type Fetcher struct {
 	interval        time.Duration
 	feedRepo        storage.FeedRepository
 	videoRepo       storage.VideoRepository
+	vectorClient    *storage.Weaviate
 	feedReader      FeedReader
 	channelReader   ChannelReader
 	metadataFetcher MetadataFetcher
@@ -24,11 +26,12 @@ type Fetcher struct {
 	logger          *slog.Logger
 }
 
-func NewFetch(feedRepo storage.FeedRepository, videoRepo storage.VideoRepository, channelReader ChannelReader, feedReader FeedReader, interval time.Duration, metadataFetcher MetadataFetcher, summaryFetcher SummaryFetcher, logger *slog.Logger) *Fetcher {
+func NewFetch(feedRepo storage.FeedRepository, videoRepo storage.VideoRepository, channelReader ChannelReader, feedReader FeedReader, wvClient *storage.Weaviate, interval time.Duration, metadataFetcher MetadataFetcher, summaryFetcher SummaryFetcher, logger *slog.Logger) *Fetcher {
 	return &Fetcher{
 		interval:        interval,
 		feedRepo:        feedRepo,
 		videoRepo:       videoRepo,
+		vectorClient:    wvClient,
 		channelReader:   channelReader,
 		feedReader:      feedReader,
 		metadataFetcher: metadataFetcher,
@@ -58,14 +61,18 @@ func (f *Fetcher) Run() {
 			case model.StatusNew:
 				f.needsMetadata <- video
 			case model.StatusHasMetadata:
-				f.needsSummary <- video
-			case model.StatusHasSummary:
+				//	f.needsSummary <- video
+				//case model.StatusHasSummary:
 				video.Status = model.StatusReady
 				f.logger.Info("video is ready", slog.String("id", video.ID.String()))
+				if err := f.vectorClient.Save(context.Background(), video); err != nil {
+					f.logger.Error("failed to save video in vector db", err)
+					continue
+				}
 
 			}
 			if err := f.videoRepo.Save(video); err != nil {
-				f.logger.Error("failed to save video", err)
+				f.logger.Error("failed to save video in normal db", err)
 				continue
 			}
 		}

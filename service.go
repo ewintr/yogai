@@ -54,9 +54,24 @@ func main() {
 	}
 	yt := fetcher.NewYoutube(ytClient)
 
-	openAIClient := fetcher.NewOpenAI(getParam("OPENAI_API_KEY", ""))
+	openaiKey := getParam("OPENAI_API_KEY", "")
+	openAIClient := fetcher.NewOpenAI(openaiKey)
 
-	go fetcher.NewFetch(feedRepo, videoRepo, yt, mflx, fetchInterval, yt, openAIClient, logger).Run()
+	wvResetSchema := getParam("WEAVIATE_RESET_SCHEMA", "false") == "true"
+	wv, err := storage.NewWeaviate(getParam("WEAVIATE_HOST", ""), getParam("WEAVIATE_API_KEY", ""), openaiKey)
+	if err != nil {
+		logger.Error("unable to create weaviate client", err)
+		os.Exit(1)
+	}
+	if wvResetSchema {
+		logger.Info("resetting weaviate schema")
+		if err := wv.ResetSchema(); err != nil {
+			logger.Error("unable to reset weaviate schema", err)
+			os.Exit(1)
+		}
+	}
+
+	go fetcher.NewFetch(feedRepo, videoRepo, yt, mflx, wv, fetchInterval, yt, openAIClient, logger).Run()
 	logger.Info("fetch service started")
 
 	port, err := strconv.Atoi(getParam("API_PORT", "8080"))
