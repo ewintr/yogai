@@ -1,4 +1,4 @@
-package fetcher
+package fetch
 
 import "ewintr.nl/yogai/model"
 

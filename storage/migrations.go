@@ -42,4 +42,14 @@ ADD COLUMN published_at VARCHAR(255)`,
 	`ALTER TABLE video RENAME COLUMN title TO youtube_title`,
 	`ALTER TABLE video RENAME COLUMN description TO youtube_description`,
 	`ALTER TABLE video RENAME COLUMN youtube_published_id TO youtube_published_at`,
+	`UPDATE video SET status = 'new'`,
+	`CREATE TYPE video_status_new AS ENUM ('new', 'fetched', 'ready')`,
+	`BEGIN;
+ALTER TABLE video ADD COLUMN status_new video_status_new;
+UPDATE video SET status_new = status::text::video_status_new;
+ALTER TABLE video DROP COLUMN status;
+ALTER TABLE video RENAME COLUMN status_new TO status;
+COMMIT;`,
+	`DROP TYPE video_status`,
+	`ALTER TYPE video_status_new RENAME TO video_status`,
 }

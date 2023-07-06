@@ -1,15 +1,21 @@
 package storage
 
 import (
+	"context"
+
 	"ewintr.nl/yogai/model"
 )
 
-type FeedRepository interface {
+type FeedRelRepository interface {
 	Save(feed *model.Feed) error
 	FindByStatus(statuses ...model.FeedStatus) ([]*model.Feed, error)
 }
 
-type VideoRepository interface {
+type VideoRelRepository interface {
 	Save(video *model.Video) error
 	FindByStatus(statuses ...model.VideoStatus) ([]*model.Video, error)
+}
+
+type VideoVecRepository interface {
+	Save(ctx context.Context, video *model.Video) error
 }

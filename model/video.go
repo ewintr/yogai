@@ -5,10 +5,9 @@ import "github.com/google/uuid"
 type VideoStatus string
 
 const (
-	StatusNew         VideoStatus = "new"
-	StatusHasMetadata VideoStatus = "has_metadata"
-	StatusHasSummary  VideoStatus = "has_summary"
-	StatusReady       VideoStatus = "ready"
+	StatusNew     VideoStatus = "new"
+	StatusFetched VideoStatus = "fetched"
+	StatusReady   VideoStatus = "ready"
 )
 
 type YoutubeVideoID string

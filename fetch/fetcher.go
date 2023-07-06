@@ -1,7 +1,6 @@
-package fetcher
+package fetch
 
 import (
-	"context"
 	"time"
 
 	"ewintr.nl/yogai/model"
@@ -12,34 +11,30 @@ import (
 
 type Fetcher struct {
 	interval        time.Duration
-	feedRepo        storage.FeedRepository
-	videoRepo       storage.VideoRepository
-	vectorClient    *storage.Weaviate
+	feedRepo        storage.FeedRelRepository
+	videoRepo       storage.VideoRelRepository
 	feedReader      FeedReader
 	channelReader   ChannelReader
 	metadataFetcher MetadataFetcher
-	summaryFetcher  SummaryFetcher
 	feedPipeline    chan *model.Feed
 	videoPipeline   chan *model.Video
 	needsMetadata   chan *model.Video
-	needsSummary    chan *model.Video
+	out             chan *model.Video
 	logger          *slog.Logger
 }
 
-func NewFetch(feedRepo storage.FeedRepository, videoRepo storage.VideoRepository, channelReader ChannelReader, feedReader FeedReader, wvClient *storage.Weaviate, interval time.Duration, metadataFetcher MetadataFetcher, summaryFetcher SummaryFetcher, logger *slog.Logger) *Fetcher {
+func NewFetch(feedRepo storage.FeedRelRepository, videoRepo storage.VideoRelRepository, channelReader ChannelReader, feedReader FeedReader, interval time.Duration, metadataFetcher MetadataFetcher, logger *slog.Logger) *Fetcher {
 	return &Fetcher{
 		interval:        interval,
 		feedRepo:        feedRepo,
 		videoRepo:       videoRepo,
-		vectorClient:    wvClient,
 		channelReader:   channelReader,
 		feedReader:      feedReader,
 		metadataFetcher: metadataFetcher,
-		summaryFetcher:  summaryFetcher,
 		feedPipeline:    make(chan *model.Feed, 10),
 		videoPipeline:   make(chan *model.Video, 10),
 		needsMetadata:   make(chan *model.Video, 10),
-		needsSummary:    make(chan *model.Video, 10),
+		out:             make(chan *model.Video),
 		logger:          logger,
 	}
 }
@@ -50,34 +45,28 @@ func (f *Fetcher) Run() {
 
 	go f.ReadFeeds()
 	go f.MetadataFetcher()
-	go f.SummaryFetcher()
 	go f.FindUnprocessed()
 
 	f.logger.Info("started videoPipeline")
 	for {
 		select {
 		case video := <-f.videoPipeline:
-			switch video.Status {
-			case model.StatusNew:
-				f.needsMetadata <- video
-			case model.StatusHasMetadata:
-				//	f.needsSummary <- video
-				//case model.StatusHasSummary:
-				video.Status = model.StatusReady
-				f.logger.Info("video is ready", slog.String("id", video.ID.String()))
-				if err := f.vectorClient.Save(context.Background(), video); err != nil {
-					f.logger.Error("failed to save video in vector db", err)
-					continue
-				}
-
-			}
 			if err := f.videoRepo.Save(video); err != nil {
 				f.logger.Error("failed to save video in normal db", err)
 				continue
 			}
+			switch video.Status {
+			case model.StatusNew:
+				f.needsMetadata <- video
+			case model.StatusFetched:
+				f.out <- video
+			}
 		}
-
 	}
+}
+
+func (f *Fetcher) Out() chan *model.Video {
+	return f.out
 }
 
 func (f *Fetcher) FindNewFeeds() {
@@ -93,7 +82,7 @@ func (f *Fetcher) FindNewFeeds() {
 }
 
 func (f *Fetcher) FetchHistoricalVideos() {
-	f.logger.Info("started historical video fetcher")
+	f.logger.Info("started historical video fetch")
 
 	for feed := range f.feedPipeline {
 		f.logger.Info("fetching historical videos", slog.String("channelid", string(feed.YoutubeChannelID)))
@@ -139,7 +128,7 @@ func (f *Fetcher) FetchHistoricalVideoPage(channelID model.YoutubeChannelID, pag
 
 func (f *Fetcher) FindUnprocessed() {
 	f.logger.Info("looking for unprocessed videos")
-	videos, err := f.videoRepo.FindByStatus(model.StatusNew, model.StatusHasMetadata)
+	videos, err := f.videoRepo.FindByStatus(model.StatusNew, model.StatusFetched)
 	if err != nil {
 		f.logger.Error("failed to fetch unprocessed videos", err)
 		return
@@ -185,7 +174,7 @@ func (f *Fetcher) ReadFeeds() {
 }
 
 func (f *Fetcher) MetadataFetcher() {
-	f.logger.Info("started metadata fetcher")
+	f.logger.Info("started metadata fetch")
 
 	buffer := []*model.Video{}
 	timeout := time.NewTimer(10 * time.Second)
@@ -209,7 +198,7 @@ func (f *Fetcher) MetadataFetcher() {
 				video.YoutubeDescription = md.Description
 				video.YoutubeDuration = md.Duration
 				video.YoutubePublishedAt = md.PublishedAt
-				video.Status = model.StatusHasMetadata
+				video.Status = model.StatusFetched
 
 				if err := f.videoRepo.Save(video); err != nil {
 					f.logger.Error("failed to save video", err)
@@ -239,22 +228,6 @@ func (f *Fetcher) MetadataFetcher() {
 			copy(batch, buffer)
 			fetch <- batch
 			buffer = []*model.Video{}
-		}
-	}
-}
-
-func (f *Fetcher) SummaryFetcher() {
-	for {
-		select {
-		case video := <-f.needsSummary:
-			f.logger.Info("fetching summary", slog.String("id", video.ID.String()))
-			if err := f.summaryFetcher.FetchSummary(video); err != nil {
-				f.logger.Error("failed to fetch summary", err)
-				continue
-			}
-			video.Status = model.StatusHasSummary
-			f.logger.Info("fetched summary", slog.String("id", video.ID.String()))
-			f.videoPipeline <- video
 		}
 	}
 }

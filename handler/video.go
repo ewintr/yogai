@@ -12,11 +12,11 @@ import (
 )
 
 type VideoAPI struct {
-	videoRepo storage.VideoRepository
+	videoRepo storage.VideoRelRepository
 	logger    *slog.Logger
 }
 
-func NewVideoAPI(videoRepo storage.VideoRepository, logger *slog.Logger) *VideoAPI {
+func NewVideoAPI(videoRepo storage.VideoRelRepository, logger *slog.Logger) *VideoAPI {
 	return &VideoAPI{
 		videoRepo: videoRepo,
 		logger:    logger,
