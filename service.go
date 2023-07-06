@@ -22,7 +22,7 @@ import (
 func main() {
 
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(os.Stderr))
+	logger := slog.New(slog.NewTextHandler(os.Stdout))
 
 	postgres, err := storage.NewPostgres(storage.PostgresInfo{
 		Host:     getParam("POSTGRES_HOST", "localhost"),

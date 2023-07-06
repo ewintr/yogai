@@ -64,7 +64,11 @@ func (w *Weaviate) ResetSchema() error {
 }
 
 func (w *Weaviate) Save(ctx context.Context, video *model.Video) error {
-	vID := video.ID.String()
+	vec := model.VideoVec{
+		ID:      video.ID,
+		Summary: video.Summary,
+	}
+	vID := vec.ID.String()
 	// check it already exists
 	exists, err := w.client.Data().
 		Checker().
@@ -80,7 +84,7 @@ func (w *Weaviate) Save(ctx context.Context, video *model.Video) error {
 			Updater().
 			WithID(vID).
 			WithClassName(className).
-			WithProperties(video).
+			WithProperties(vec).
 			Do(ctx)
 	}
 
@@ -88,7 +92,7 @@ func (w *Weaviate) Save(ctx context.Context, video *model.Video) error {
 		Creator().
 		WithClassName(className).
 		WithID(vID).
-		WithProperties(video).
+		WithProperties(vec).
 		Do(ctx)
 
 	return err

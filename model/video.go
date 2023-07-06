@@ -26,3 +26,8 @@ type Video struct {
 
 	Summary string
 }
+
+type VideoVec struct {
+	ID      uuid.UUID
+	Summary string
+}
