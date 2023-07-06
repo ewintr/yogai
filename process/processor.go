@@ -65,6 +65,10 @@ func (p *Pipeline) Process(ctx context.Context, video *model.Video) {
 		next := p.procs.Next(video)
 		if next == nil {
 			p.logger.Info("no more processors for video", slog.String("video", string(video.YoutubeID)))
+			video.Status = model.StatusReady
+			if err := p.relStorage.Save(video); err != nil {
+				p.logger.Error("failed to save video in rel db", slog.String("video", string(video.YoutubeID)), slog.String("error", err.Error()))
+			}
 			return
 		}
 

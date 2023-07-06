@@ -78,8 +78,9 @@ func main() {
 	logger.Info("fetch service started")
 
 	procs := process.NewProcessors(openAIClient)
-	pipeline := process.NewPipeline(fetcher.Out(), procs, videoRelRepo, wvClient, logger)
-	go pipeline.Run()
+	for i := 0; i < 4; i++ {
+		go process.NewPipeline(fetcher.Out(), procs, videoRelRepo, wvClient, logger.With(slog.Int("pipeline", i))).Run()
+	}
 	logger.Info("processing service started")
 
 	port, err := strconv.Atoi(getParam("API_PORT", "8080"))
