@@ -204,6 +204,8 @@ func (f *Fetcher) MetadataFetcher() {
 					f.logger.Error("failed to save video", err)
 					continue
 				}
+
+				f.out <- video
 			}
 			f.logger.Info("fetched metadata", slog.Int("count", len(videos)))
 		}
