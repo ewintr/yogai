@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"ewintr.nl/yogai/model"
+	"go-mod.ewintr.nl/yogai/model"
 	"github.com/sashabaranov/go-openai"
 )
 

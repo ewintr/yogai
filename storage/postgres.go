@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"ewintr.nl/yogai/model"
+	"go-mod.ewintr.nl/yogai/model"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )

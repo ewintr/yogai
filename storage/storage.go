@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 
-	"ewintr.nl/yogai/model"
+	"go-mod.ewintr.nl/yogai/model"
 )
 
 type FeedRelRepository interface {

@@ -3,8 +3,8 @@ package process
 import (
 	"context"
 
-	"ewintr.nl/yogai/model"
-	"ewintr.nl/yogai/storage"
+	"go-mod.ewintr.nl/yogai/model"
+	"go-mod.ewintr.nl/yogai/storage"
 	"github.com/sashabaranov/go-openai"
 	"golang.org/x/exp/slog"
 )

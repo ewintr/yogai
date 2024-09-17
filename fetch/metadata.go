@@ -1,6 +1,6 @@
 package fetch
 
-import "ewintr.nl/yogai/model"
+import "go-mod.ewintr.nl/yogai/model"
 
 type Metadata struct {
 	Title       string

@@ -3,7 +3,7 @@ package fetch
 import (
 	"strings"
 
-	"ewintr.nl/yogai/model"
+	"go-mod.ewintr.nl/yogai/model"
 	"google.golang.org/api/youtube/v3"
 )
 

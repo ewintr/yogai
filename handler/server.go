@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"ewintr.nl/yogai/storage"
+	"go-mod.ewintr.nl/yogai/storage"
 	"golang.org/x/exp/slog"
 	"miniflux.app/logger"
 )

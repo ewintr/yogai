@@ -3,8 +3,8 @@ package fetch
 import (
 	"time"
 
-	"ewintr.nl/yogai/model"
-	"ewintr.nl/yogai/storage"
+	"go-mod.ewintr.nl/yogai/model"
+	"go-mod.ewintr.nl/yogai/storage"
 	"github.com/google/uuid"
 	"golang.org/x/exp/slog"
 )

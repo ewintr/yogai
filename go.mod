@@ -1,4 +1,4 @@
-module ewintr.nl/yogai
+module go-mod.ewintr.nl/yogai
 
 go 1.20
 
